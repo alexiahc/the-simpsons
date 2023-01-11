@@ -245,7 +245,7 @@ server <- function(input, output) {
   
   output$plot_ratio <- renderPlot({
     # number of women 
-    ratio_nb_women <- length(women$id) / (length(women$id) + length(men$id))
+    ratio_nb_women <- length(women$character_id) / (length(women$character_id) + length(men$character_id))
     
     # time of speaking
     ratio_women_time <- sum(data_women$timestamp_in_ms) / (sum(data_women$timestamp_in_ms) 
