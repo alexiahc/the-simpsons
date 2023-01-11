@@ -204,6 +204,6 @@ df_ratios <- data.frame(criteria=c("nb characters", "nb lines",
                               ratio_women_time, ratio_women_time_mean, 
                               ratios_nb_word))
 ggplot(data=df_ratios, aes(x=criteria, y=ratio)) +
-  geom_bar(stat="identity")
+  geom_bar(stat="identity", fill ="#E69F53") 
 
 

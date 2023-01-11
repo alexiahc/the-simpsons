@@ -59,7 +59,8 @@ ui <- fluidPage(
       helpText("Women's role in The Simpsons")
     ),
     mainPanel(plotOutput("plot_talkative"), 
-              plotOutput(("plot_sentiment_gender")))
+              plotOutput("plot_sentiment_gender"),
+              plotOutput("plot_ratio"))
   ),
   sidebarLayout(
     sidebarPanel(
@@ -108,10 +109,6 @@ server <- function(input, output) {
   
   women <- subset(characters, gender=='f')
   men <- subset(characters, gender=='m')
-  ratio_nb_women <- length(women$id) / (length(women$id) + length(men$id))
-  
-  data_women <- subset(data, gender=='f')
-  data_men <- subset(data, gender=='m')
   
   dataInput <- reactive({ 
     getSymbols(input$symb, src = "yahoo",
@@ -243,6 +240,36 @@ server <- function(input, output) {
       labs(x="Sentiment", y="Frequency", title="How is the overall mood") +
       coord_flip() + 
       theme_bw() 
+    
+  })
+  
+  output$plot_ratio <- renderPlot({
+    # number of women 
+    ratio_nb_women <- length(women$id) / (length(women$id) + length(men$id))
+    
+    # time of speaking
+    ratio_women_time <- sum(data_women$timestamp_in_ms) / (sum(data_women$timestamp_in_ms) 
+                                                           + sum(data_men$timestamp_in_ms))
+    
+    # mean time of speaking per lines
+    ratio_women_time_mean <- mean(data_women$timestamp_in_ms) / (mean(data_women$timestamp_in_ms) + 
+                                                                   mean(data_men$timestamp_in_ms))
+    
+    # number of lines 
+    ratio_women_nb_lines <- length(data_women$line_id) / (length(data_women$line_id) + 
+                                                            length(data_men$line_id))
+    # word count
+    ratios_nb_word <- sum(data_women$word_count) / (sum(data_women$word_count) 
+                                                    + sum(data_men$word_count))
+    
+    df_ratios <- data.frame(criteria=c("nb characters", "nb lines", 
+                                       "speaking time", "mean speaking time", 
+                                       "word count"),
+                            ratio=c(ratio_nb_women, ratio_women_nb_lines,
+                                    ratio_women_time, ratio_women_time_mean, 
+                                    ratios_nb_word))
+    ggplot(data=df_ratios, aes(x=criteria, y=ratio)) +
+      geom_bar(stat="identity", fill ="#E69F53")
     
   })
   
