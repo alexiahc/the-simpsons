@@ -1,0 +1,252 @@
+# Load packages ----
+library(shiny)
+library(quantmod)
+library(readr)
+library(plyr)
+library(purrr)
+library(readr)
+library(tidyverse)
+library(tm)
+library(RColorBrewer)
+library(wordcloud)
+library(wordcloud2)
+library(tidytext)
+library(textdata)
+library(reshape2)
+library(RWeka)
+library(knitr)
+library(gridExtra)
+library(grid)
+library(magick)
+library(igraph)
+library(ggraph)
+library("ggsci")
+library(devtools)
+library(circlize)
+library(radarchart)
+library(dplyr)
+
+# User interface ----
+ui <- fluidPage(
+  titlePanel("Social and politic in the Simpsons"),
+  
+  # sidebarLayout(
+  #   sidebarPanel(
+  #     # helpText("Select a stock to examine.
+  #     # 
+  #     #   Information will be collected from Yahoo finance."),
+  #     # textInput("symb", "Symbol", "SPY"),
+  #     
+  #     dateRangeInput("dates",
+  #                    "Date range",
+  #                    start = "1990-01-01",
+  #                    end = as.character(Sys.Date())),
+  #     
+  #     br(),
+  #     br(),
+  #     
+  #     # checkboxInput("log", "Plot y axis on log scale",
+  #     #               value = FALSE),
+  #     # 
+  #     # checkboxInput("adjust",
+  #     #               "Adjust prices for inflation", value = FALSE),
+  #   ),
+  #   mainPanel(plotOutput("plot"), plotOutput("plot2"))
+  # ),
+  
+  sidebarLayout(
+    sidebarPanel(
+      helpText("Women's role in The Simpsons")
+    ),
+    mainPanel(plotOutput("plot_talkative"), 
+              plotOutput(("plot_sentiment_gender")))
+  ),
+  sidebarLayout(
+    sidebarPanel(
+      helpText("Sentiment analysis in The Simpsons")
+    ),
+    mainPanel(plotOutput("plot_chord_simps"), 
+              helpText("Representation of positive and negative words"),
+              plotOutput("plot_cloud_sent"),
+              plotOutput("plot_overall_mood"))
+  ),
+)
+
+# Server logic
+server <- function(input, output) {
+  
+  characters <- read_csv("data/simpsons_characters.csv")
+  episodes <- read_csv("data/simpsons_episodes.csv")
+  locations <- read_csv("data/simpsons_locations.csv")
+  script_lines <- read_csv("data/simpsons_script_lines.csv")
+  bing <- read_csv("data/Bing.csv")
+  nrc <- read_csv("data/NRC.csv")
+  afinn <- read_csv("data/Afinn.csv")
+  
+  script_lines <- script_lines %>% rename(line_id = "id")
+  characters <- characters %>% rename(character_id = "id",
+                                      character_name = "name",
+                                      character_norm_name = "normalized_name")
+  data <- merge(script_lines, characters, by= "character_id")
+  locations <- locations %>% rename(location_id = "id",
+                                    location_name = "name",
+                                    location_norm_name = "normalized_name")
+  data <- merge(data, locations, by= "location_id")
+  episodes <- episodes %>% rename(episode_id = "id",
+                                  episode_title = "title")
+  data <- merge(data, episodes, by= "episode_id")
+  data <- subset(data, speaking_line == TRUE)
+  data <- subset(data, select = -c(number, raw_text, raw_character_text,
+                                   raw_location_text, spoken_words, character_name,
+                                   location_name, speaking_line))
+  data$word_count <- as.numeric(data$word_count)
+  data$word_count[is.na(data$word_count)] <- 0 
+
+  data_women <- subset(data, gender=='f')
+  data_men <- subset(data, gender=='m')
+  data_wm <- subset(data, gender=="f" | gender=="m")
+  
+  women <- subset(characters, gender=='f')
+  men <- subset(characters, gender=='m')
+  ratio_nb_women <- length(women$id) / (length(women$id) + length(men$id))
+  
+  data_women <- subset(data, gender=='f')
+  data_men <- subset(data, gender=='m')
+  
+  dataInput <- reactive({ 
+    getSymbols(input$symb, src = "yahoo",
+               from = input$dates[1],
+               to = input$dates[2],
+               auto.assign = FALSE)
+  })
+  
+  finalInput <- reactive({
+    if (!input$adjust) return(dataInput())
+    adjust(dataInput())
+  })
+  
+  output$plot_talkative <- renderPlot({
+    data_wm %>% 
+      # prepare the table
+      count(character_norm_name) %>%
+      arrange(desc(n)) %>% 
+      slice(1:15) %>%
+      merge(characters, by= "character_norm_name") %>%
+      arrange(desc(n)) %>% 
+      # the plot
+      ggplot(aes(x=reorder(character_norm_name, n), y=n, color=gender)) +
+      geom_bar(stat="identity", aes(fill=n), show.legend=F) +
+      geom_label(aes(label=n)) +
+      scale_fill_gradient(low="#33D1FF", high="#3383FF") +
+      scale_color_manual(values=c("#E69F53", "#40B742")) +
+      labs(x="Character", y="Number of dialogues", title="Most talkative in The Simpsons by gender") +
+      coord_flip() +
+      theme_bw()
+  })
+  
+  output$plot_sentiment_gender <- renderPlot({
+    tokens_women <- data_women %>% 
+      mutate(dialogue = as.character(data_women$normalized_text)) %>% 
+      unnest_tokens(word, dialogue)
+    
+    sentiments_women <- tokens_women %>% 
+      inner_join(nrc, "word") %>%
+      count(sentiment, sort=T)
+    sentiments_women$gender <- "f"
+    
+    tokens_men <- data_men %>% 
+      mutate(dialogue = as.character(data_men$normalized_text)) %>% 
+      unnest_tokens(word, dialogue)
+    
+    sentiments_men <- tokens_men %>% 
+      inner_join(nrc, "word") %>%
+      count(sentiment, sort=T)
+    sentiments_men$gender <- "m"
+    
+    sentiments <- rbind(sentiments_women, sentiments_men)
+    
+    p1 <- ggplot(sentiments[sentiments$gender == 'f',], aes(x=sentiment, y= n)) + geom_col(fill='#E69F53') + theme_minimal() +
+      coord_flip() + scale_y_reverse(name= "Women",expand = expand_scale(mult= c(c(0.05,0)))) +
+      theme(panel.spacing.x = unit(0, "mm")) +
+      theme(plot.margin = unit(c(5.5, 0, 5.5, 5.5), "pt"))
+    
+    p2 <- ggplot(sentiments[sentiments$gender == 'm',], aes(x=sentiment, y= n)) + geom_col(fill='#40B742') + theme_minimal() +
+      coord_flip() + scale_y_continuous(name = "Men", expand = expand_scale(mult= c(c(0,0.05)))) +
+      theme(panel.spacing.x = unit(0, "mm")) + 
+      theme(axis.title.y=element_blank(), axis.text.y=element_blank(),
+            axis.line.y = element_blank(), axis.ticks.y=element_blank(),
+            plot.margin = unit(c(5.5, 5.5, 5.5, -3.5), "pt"))
+    
+    grid.newpage()
+    grid.draw(cbind(ggplotGrob(p1), ggplotGrob(p2), size = "last"))
+  })
+  
+  output$plot_chord_simps <- renderPlot({
+    tokens <- data %>% 
+      mutate(dialogue = as.character(data$normalized_text)) %>% 
+      unnest_tokens(word, dialogue)
+    
+    to_plot <- tokens %>% 
+      # get 'bing' and filter the data
+      inner_join(bing, "word") %>% 
+      filter(character_norm_name %in% c("homer simpson", "marge simpson", "lisa simpson", "bart simpson")) %>% 
+      
+      # sum number of words per sentiment and character
+      count(sentiment, character_norm_name) %>% 
+      group_by(character_norm_name, sentiment) %>% 
+      summarise(sentiment_sum = sum(n)) %>% 
+      ungroup()
+    
+    # The Chord Diagram  
+    circos.clear()
+    circos.par(gap.after = c(rep(2, length(unique(to_plot[[1]])) - 1), 15,
+                             rep(2, length(unique(to_plot[[2]])) - 1), 15), gap.degree=2)
+    
+    myColors = c("homer simpson" = "#FA8072", "marge simpson" = "#04700A", "lisa simpson" = "#75A9F3", "bart simpson" = "#FFCC46", "positive" = "#D7DBDD", "negative" = "#D7DBDD")
+    
+    chordDiagram(to_plot, grid.col = myColors, transparency = 0.4, annotationTrack = c("name", "grid"),
+                 annotationTrackHeight = c(0.01, 0.02))
+    title("Relationship between mood and the Simpson family")
+  })
+  
+  output$plot_cloud_sent <- renderPlot({
+    tokens <- data %>%
+      mutate(dialogue = as.character(data$normalized_text)) %>%
+      unnest_tokens(word, dialogue)
+
+    tokens %>% head(5) %>% select(character_norm_name, word)
+
+    tokens %>%
+      # append the bing sentiment and prepare the data
+      inner_join(bing, "word") %>%
+      count(word, sentiment, sort=T) %>%
+      acast(word ~ sentiment, value.var = "n", fill=0) %>%
+
+      # wordcloud
+      comparison.cloud(colors=c("#991D1D", "#327CDE"), max.words = 100)
+  })
+  
+  output$plot_overall_mood <- renderPlot({
+    tokens <- data %>% 
+      mutate(dialogue = as.character(data$normalized_text)) %>% 
+      unnest_tokens(word, dialogue)
+    
+    sentiments <- tokens %>% 
+      inner_join(nrc, "word") %>%
+      count(sentiment, sort=T)
+    
+    # The plot:
+    sentiments %>% 
+      ggplot(aes(x=reorder(sentiment, n), y=n)) +
+      geom_bar(stat="identity", aes(fill=sentiment), show.legend=F) +
+      geom_label(label=sentiments$n) +
+      labs(x="Sentiment", y="Frequency", title="How is the overall mood") +
+      coord_flip() + 
+      theme_bw() 
+    
+  })
+  
+}
+
+# Run the app
+shinyApp(ui, server)
