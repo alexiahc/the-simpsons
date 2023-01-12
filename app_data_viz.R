@@ -30,29 +30,34 @@ library(dplyr)
 ui <- fluidPage(
   titlePanel("Social and politic in the Simpsons"),
   
-  # sidebarLayout(
-  #   sidebarPanel(
-  #     # helpText("Select a stock to examine.
-  #     # 
-  #     #   Information will be collected from Yahoo finance."),
-  #     # textInput("symb", "Symbol", "SPY"),
-  #     
-  #     dateRangeInput("dates",
-  #                    "Date range",
-  #                    start = "1990-01-01",
-  #                    end = as.character(Sys.Date())),
-  #     
-  #     br(),
-  #     br(),
-  #     
-  #     # checkboxInput("log", "Plot y axis on log scale",
-  #     #               value = FALSE),
-  #     # 
-  #     # checkboxInput("adjust",
-  #     #               "Adjust prices for inflation", value = FALSE),
-  #   ),
-  #   mainPanel(plotOutput("plot"), plotOutput("plot2"))
-  # ),
+  sidebarLayout(
+    sidebarPanel(
+      # helpText("Select a stock to examine.
+      #
+      #   Information will be collected from Yahoo finance."),
+      # textInput("symb", "Symbol", "SPY"),
+
+      # dateRangeInput("dates",
+      #                "Date range",
+      #                start = "1990-01-01",
+      #                end = as.character(Sys.Date())),
+      # 
+      sliderInput(inputId = "seasons",
+                  label = "Select the seasons",
+                  value = c(1,26),
+                  min = 1, max = 26),
+
+      # br(),
+      # br(),
+
+      # checkboxInput("log", "Plot y axis on log scale",
+      #               value = FALSE),
+      #
+      # checkboxInput("adjust",
+      #               "Adjust prices for inflation", value = FALSE),
+    ),
+    mainPanel()
+  ),
   
   sidebarLayout(
     sidebarPanel(
@@ -102,28 +107,13 @@ server <- function(input, output) {
                                    location_name, speaking_line))
   data$word_count <- as.numeric(data$word_count)
   data$word_count[is.na(data$word_count)] <- 0 
-
-  data_women <- subset(data, gender=='f')
-  data_men <- subset(data, gender=='m')
-  data_wm <- subset(data, gender=="f" | gender=="m")
   
-  women <- subset(characters, gender=='f')
-  men <- subset(characters, gender=='m')
-  
-  dataInput <- reactive({ 
-    getSymbols(input$symb, src = "yahoo",
-               from = input$dates[1],
-               to = input$dates[2],
-               auto.assign = FALSE)
-  })
-  
-  finalInput <- reactive({
-    if (!input$adjust) return(dataInput())
-    adjust(dataInput())
+  dataInput <- reactive({
+    return(subset(data, season > input$seasons[1] & season < input$seasons[2]))
   })
   
   output$plot_talkative <- renderPlot({
-    data_wm %>% 
+    subset(dataInput(), gender=="f" | gender=="m") %>% 
       # prepare the table
       count(character_norm_name) %>%
       arrange(desc(n)) %>% 
@@ -142,8 +132,8 @@ server <- function(input, output) {
   })
   
   output$plot_sentiment_gender <- renderPlot({
-    tokens_women <- data_women %>% 
-      mutate(dialogue = as.character(data_women$normalized_text)) %>% 
+    tokens_women <- subset(dataInput(), gender=='f') %>% 
+      mutate(dialogue = as.character(subset(dataInput(), gender=='f')$normalized_text)) %>% 
       unnest_tokens(word, dialogue)
     
     sentiments_women <- tokens_women %>% 
@@ -151,8 +141,8 @@ server <- function(input, output) {
       count(sentiment, sort=T)
     sentiments_women$gender <- "f"
     
-    tokens_men <- data_men %>% 
-      mutate(dialogue = as.character(data_men$normalized_text)) %>% 
+    tokens_men <- subset(dataInput(), gender=='m') %>% 
+      mutate(dialogue = as.character(subset(dataInput(), gender=='m')$normalized_text)) %>% 
       unnest_tokens(word, dialogue)
     
     sentiments_men <- tokens_men %>% 
@@ -179,8 +169,8 @@ server <- function(input, output) {
   })
   
   output$plot_chord_simps <- renderPlot({
-    tokens <- data %>% 
-      mutate(dialogue = as.character(data$normalized_text)) %>% 
+    tokens <- dataInput() %>% 
+      mutate(dialogue = as.character(dataInput()$normalized_text)) %>% 
       unnest_tokens(word, dialogue)
     
     to_plot <- tokens %>% 
@@ -207,8 +197,8 @@ server <- function(input, output) {
   })
   
   output$plot_cloud_sent <- renderPlot({
-    tokens <- data %>%
-      mutate(dialogue = as.character(data$normalized_text)) %>%
+    tokens <- dataInput() %>%
+      mutate(dialogue = as.character(dataInput()$normalized_text)) %>%
       unnest_tokens(word, dialogue)
 
     tokens %>% head(5) %>% select(character_norm_name, word)
@@ -224,8 +214,8 @@ server <- function(input, output) {
   })
   
   output$plot_overall_mood <- renderPlot({
-    tokens <- data %>% 
-      mutate(dialogue = as.character(data$normalized_text)) %>% 
+    tokens <- dataInput() %>% 
+      mutate(dialogue = as.character(dataInput()$normalized_text)) %>% 
       unnest_tokens(word, dialogue)
     
     sentiments <- tokens %>% 
@@ -245,22 +235,24 @@ server <- function(input, output) {
   
   output$plot_ratio <- renderPlot({
     # number of women 
-    ratio_nb_women <- length(women$character_id) / (length(women$character_id) + length(men$character_id))
+    ratio_nb_women <- length(unique(subset(dataInput(), gender == "f")$character_id)) / 
+                      (length(unique(subset(dataInput(), gender == "f")$character_id)) + 
+                         length(unique(subset(dataInput(), gender == "m")$character_id)))
     
     # time of speaking
-    ratio_women_time <- sum(data_women$timestamp_in_ms) / (sum(data_women$timestamp_in_ms) 
-                                                           + sum(data_men$timestamp_in_ms))
+    ratio_women_time <- sum(subset(dataInput(), gender=='f')$timestamp_in_ms) / (sum(subset(dataInput(), gender=='f')$timestamp_in_ms) 
+                                                           + sum(subset(dataInput(), gender=='m')$timestamp_in_ms))
     
     # mean time of speaking per lines
-    ratio_women_time_mean <- mean(data_women$timestamp_in_ms) / (mean(data_women$timestamp_in_ms) + 
-                                                                   mean(data_men$timestamp_in_ms))
+    ratio_women_time_mean <- mean(subset(dataInput(), gender=='f')$timestamp_in_ms) / (mean(subset(dataInput(), gender=='f')$timestamp_in_ms) + 
+                                                                   mean(subset(dataInput(), gender=='m')$timestamp_in_ms))
     
     # number of lines 
-    ratio_women_nb_lines <- length(data_women$line_id) / (length(data_women$line_id) + 
-                                                            length(data_men$line_id))
+    ratio_women_nb_lines <- length(subset(dataInput(), gender=='f')$line_id) / (length(subset(dataInput(), gender=='f')$line_id) + 
+                                                            length(subset(dataInput(), gender=='m')$line_id))
     # word count
-    ratios_nb_word <- sum(data_women$word_count) / (sum(data_women$word_count) 
-                                                    + sum(data_men$word_count))
+    ratios_nb_word <- sum(subset(dataInput(), gender=='f')$word_count) / (sum(subset(dataInput(), gender=='f')$word_count) 
+                                                    + sum(subset(dataInput(), gender=='m')$word_count))
     
     df_ratios <- data.frame(criteria=c("nb characters", "nb lines", 
                                        "speaking time", "mean speaking time", 
