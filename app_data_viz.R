@@ -25,6 +25,7 @@ library(devtools)
 library(circlize)
 library(radarchart)
 library(dplyr)
+library(RCurl)
 
 # User interface ----
 ui <- fluidPage(
@@ -81,7 +82,7 @@ ui <- fluidPage(
 # Server logic
 server <- function(input, output) {
   
-  characters <- read_csv("data/simpsons_characters.csv")
+  characters <- read_csv(url("data/simpsons_characters.csv"))
   episodes <- read_csv("data/simpsons_episodes.csv")
   locations <- read_csv("data/simpsons_locations.csv")
   script_lines <- read_csv("data/simpsons_script_lines.csv")
