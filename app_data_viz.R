@@ -4,32 +4,13 @@ library(quantmod)
 library(readr)
 library(seededlda)
 library(quanteda)
-
-library(plyr)
-library(purrr)
-library(readr)
-library(tidyverse)
-library(tm)
-library(RColorBrewer)
-library(wordcloud)
-library(wordcloud2)
-library(tidytext)
-library(textdata)
-library(reshape2)
-library(RWeka)
-library(knitr)
-library(gridExtra)
-library(grid)
-library(magick)
-library(igraph)
-library(ggraph)
-library("ggsci")
-library(devtools)
-library(circlize)
-library(radarchart)
 library(dplyr)
-library(RCurl)
-
+library(tidyverse)
+library(tidytext)
+library(wordcloud)
+library(circlize)
+library(grid)
+library(reshape2)
 
 # User interface ----
 ui <- fluidPage(
@@ -86,7 +67,7 @@ ui <- fluidPage(
 # Server logic
 server <- function(input, output) {
   
-  characters <- read_csv(url("data/simpsons_characters.csv"))
+  characters <- read_csv("data/simpsons_characters.csv")
   episodes <- read_csv("data/simpsons_episodes.csv")
   locations <- read_csv("data/simpsons_locations.csv")
   script_lines <- read_csv("data/simpsons_script_lines.csv")
@@ -267,10 +248,6 @@ server <- function(input, output) {
                                     ratios_nb_word))
     ggplot(data=df_ratios, aes(x=criteria, y=ratio)) +
       geom_bar(stat="identity", fill ="#E69F53")
-    
-  })
-  
-  ouput$plot_topics <- renderPlot ({
     
   })
   
