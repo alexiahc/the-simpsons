@@ -2,6 +2,9 @@
 library(shiny)
 library(quantmod)
 library(readr)
+library(seededlda)
+library(quanteda)
+
 library(plyr)
 library(purrr)
 library(readr)
@@ -26,6 +29,7 @@ library(circlize)
 library(radarchart)
 library(dplyr)
 library(RCurl)
+
 
 # User interface ----
 ui <- fluidPage(
@@ -263,6 +267,10 @@ server <- function(input, output) {
                                     ratios_nb_word))
     ggplot(data=df_ratios, aes(x=criteria, y=ratio)) +
       geom_bar(stat="identity", fill ="#E69F53")
+    
+  })
+  
+  ouput$plot_topics <- renderPlot ({
     
   })
   
