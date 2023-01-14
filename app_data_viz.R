@@ -24,7 +24,6 @@ ui <- fluidPage(
                   label = "Select the seasons",
                   value = c(1,26),
                   min = 1, max = 26),
-
     ),
     mainPanel()
   ),
@@ -59,10 +58,9 @@ ui <- fluidPage(
               helpText("With the same principle as before, you can compare 
                        women and men's mood in The Simpsons."), 
               plotOutput("plot_ratio"),
-              helpText("This is a visualization of the percentage of average speaking time
-                        for women, number of feminine character, lines said by a women 
-                        in the scripts, speaking time of women and number of words said by a
-                        woman in the scripts."))
+              helpText("This is a visualization of the percentages of average speaking time
+                        for women, of feminine character, of lines said by a woman, of speaking time of women 
+                        and words said by a woman in the scripts."))
   ),
 )
 
