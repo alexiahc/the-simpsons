@@ -12,6 +12,7 @@ library(circlize)
 library(grid)
 library(reshape2)
 
+
 # User interface ----
 ui <- fluidPage(
   titlePanel("Script analysis - the Simpsons"),
