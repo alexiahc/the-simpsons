@@ -14,53 +14,54 @@ library(reshape2)
 
 # User interface ----
 ui <- fluidPage(
-  titlePanel("Social and politic in the Simpsons"),
+  titlePanel("Script analysis - the Simpsons"),
   
   sidebarLayout(
     sidebarPanel(
-      # helpText("Select a stock to examine.
-      #
-      #   Information will be collected from Yahoo finance."),
-      # textInput("symb", "Symbol", "SPY"),
 
-      # dateRangeInput("dates",
-      #                "Date range",
-      #                start = "1990-01-01",
-      #                end = as.character(Sys.Date())),
-      # 
       sliderInput(inputId = "seasons",
                   label = "Select the seasons",
                   value = c(1,26),
                   min = 1, max = 26),
 
-      # br(),
-      # br(),
-
-      # checkboxInput("log", "Plot y axis on log scale",
-      #               value = FALSE),
-      #
-      # checkboxInput("adjust",
-      #               "Adjust prices for inflation", value = FALSE),
     ),
     mainPanel()
   ),
   
   sidebarLayout(
     sidebarPanel(
-      helpText("Women's role in The Simpsons")
+      helpText(h1("Sentiment analysis"))
     ),
-    mainPanel(plotOutput("plot_talkative"), 
-              plotOutput("plot_sentiment_gender"),
-              plotOutput("plot_ratio"))
+    mainPanel(helpText(h5("Representation of positive and negative words")),
+              plotOutput("plot_cloud_sent"),
+              helpText("Negative words are represented in red, postive words in blue.
+                       The words' size is related to their number of apparition in the scripts."), 
+              plotOutput("plot_overall_mood"),
+              helpText("The emotional words are grouped by theme, and this is a 
+                       representation of the main lexical fields of feelings that are 
+                       used in the serie."),
+              plotOutput("plot_chord_simps"), 
+              helpText("This is a representation of the negativeness and positiveness 
+                       you can observe in the Simpson family, who are the main speakers 
+                       of the serie."), )
   ),
+  
   sidebarLayout(
     sidebarPanel(
-      helpText("Sentiment analysis in The Simpsons")
+      helpText(h1("Women's representation "))
     ),
-    mainPanel(plotOutput("plot_chord_simps"), 
-              helpText("Representation of positive and negative words"),
-              plotOutput("plot_cloud_sent"),
-              plotOutput("plot_overall_mood"))
+    mainPanel(plotOutput("plot_talkative"),
+              helpText("This represents the number of time each character speaks in
+                       the serie, categorization by gender."),
+              helpText(h5("Overall mood by gender")),
+              plotOutput("plot_sentiment_gender"),
+              helpText("With the same principle as before, you can compare 
+                       women and men's mood in The Simpsons."), 
+              plotOutput("plot_ratio"),
+              helpText("This is a visualization of the percentage of average speaking time
+                        for women, number of feminine character, lines said by a women 
+                        in the scripts, speaking time of women and number of words said by a
+                        woman in the scripts."))
   ),
 )
 
@@ -96,6 +97,71 @@ server <- function(input, output) {
   
   dataInput <- reactive({
     return(subset(data, season > input$seasons[1] & season < input$seasons[2]))
+  })
+  
+  output$plot_cloud_sent <- renderPlot({
+    tokens <- dataInput() %>%
+      mutate(dialogue = as.character(dataInput()$normalized_text)) %>%
+      unnest_tokens(word, dialogue)
+    
+    tokens %>% head(5) %>% select(character_norm_name, word)
+    
+    tokens %>%
+      # append the bing sentiment and prepare the data
+      inner_join(bing, "word") %>%
+      count(word, sentiment, sort=T) %>%
+      acast(word ~ sentiment, value.var = "n", fill=0) %>%
+      
+      # wordcloud
+      comparison.cloud(colors=c("#991D1D", "#327CDE"), max.words = 100)
+  })
+  
+  output$plot_overall_mood <- renderPlot({
+    tokens <- dataInput() %>% 
+      mutate(dialogue = as.character(dataInput()$normalized_text)) %>% 
+      unnest_tokens(word, dialogue)
+    
+    sentiments <- tokens %>% 
+      inner_join(nrc, "word") %>%
+      count(sentiment, sort=T)
+    
+    # The plot:
+    sentiments %>% 
+      ggplot(aes(x=reorder(sentiment, n), y=n)) +
+      geom_bar(stat="identity", aes(fill=sentiment), show.legend=F) +
+      geom_label(label=sentiments$n) +
+      labs(x="Sentiment", y="Frequency", title="How is the overall mood") +
+      coord_flip() + 
+      theme_bw() 
+    
+  })
+  
+  output$plot_chord_simps <- renderPlot({
+    tokens <- dataInput() %>% 
+      mutate(dialogue = as.character(dataInput()$normalized_text)) %>% 
+      unnest_tokens(word, dialogue)
+    
+    to_plot <- tokens %>% 
+      # get 'bing' and filter the data
+      inner_join(bing, "word") %>% 
+      filter(character_norm_name %in% c("homer simpson", "marge simpson", "lisa simpson", "bart simpson")) %>% 
+      
+      # sum number of words per sentiment and character
+      count(sentiment, character_norm_name) %>% 
+      group_by(character_norm_name, sentiment) %>% 
+      summarise(sentiment_sum = sum(n)) %>% 
+      ungroup()
+    
+    # The Chord Diagram  
+    circos.clear()
+    circos.par(gap.after = c(rep(2, length(unique(to_plot[[1]])) - 1), 15,
+                             rep(2, length(unique(to_plot[[2]])) - 1), 15), gap.degree=2)
+    
+    myColors = c("homer simpson" = "#FA8072", "marge simpson" = "#04700A", "lisa simpson" = "#75A9F3", "bart simpson" = "#FFCC46", "positive" = "#D7DBDD", "negative" = "#D7DBDD")
+    
+    chordDiagram(to_plot, grid.col = myColors, transparency = 0.4, annotationTrack = c("name", "grid"),
+                 annotationTrackHeight = c(0.01, 0.02))
+    title("Relationship between mood and the Simpson family")
   })
   
   output$plot_talkative <- renderPlot({
@@ -154,71 +220,6 @@ server <- function(input, output) {
     grid.draw(cbind(ggplotGrob(p1), ggplotGrob(p2), size = "last"))
   })
   
-  output$plot_chord_simps <- renderPlot({
-    tokens <- dataInput() %>% 
-      mutate(dialogue = as.character(dataInput()$normalized_text)) %>% 
-      unnest_tokens(word, dialogue)
-    
-    to_plot <- tokens %>% 
-      # get 'bing' and filter the data
-      inner_join(bing, "word") %>% 
-      filter(character_norm_name %in% c("homer simpson", "marge simpson", "lisa simpson", "bart simpson")) %>% 
-      
-      # sum number of words per sentiment and character
-      count(sentiment, character_norm_name) %>% 
-      group_by(character_norm_name, sentiment) %>% 
-      summarise(sentiment_sum = sum(n)) %>% 
-      ungroup()
-    
-    # The Chord Diagram  
-    circos.clear()
-    circos.par(gap.after = c(rep(2, length(unique(to_plot[[1]])) - 1), 15,
-                             rep(2, length(unique(to_plot[[2]])) - 1), 15), gap.degree=2)
-    
-    myColors = c("homer simpson" = "#FA8072", "marge simpson" = "#04700A", "lisa simpson" = "#75A9F3", "bart simpson" = "#FFCC46", "positive" = "#D7DBDD", "negative" = "#D7DBDD")
-    
-    chordDiagram(to_plot, grid.col = myColors, transparency = 0.4, annotationTrack = c("name", "grid"),
-                 annotationTrackHeight = c(0.01, 0.02))
-    title("Relationship between mood and the Simpson family")
-  })
-  
-  output$plot_cloud_sent <- renderPlot({
-    tokens <- dataInput() %>%
-      mutate(dialogue = as.character(dataInput()$normalized_text)) %>%
-      unnest_tokens(word, dialogue)
-
-    tokens %>% head(5) %>% select(character_norm_name, word)
-
-    tokens %>%
-      # append the bing sentiment and prepare the data
-      inner_join(bing, "word") %>%
-      count(word, sentiment, sort=T) %>%
-      acast(word ~ sentiment, value.var = "n", fill=0) %>%
-
-      # wordcloud
-      comparison.cloud(colors=c("#991D1D", "#327CDE"), max.words = 100)
-  })
-  
-  output$plot_overall_mood <- renderPlot({
-    tokens <- dataInput() %>% 
-      mutate(dialogue = as.character(dataInput()$normalized_text)) %>% 
-      unnest_tokens(word, dialogue)
-    
-    sentiments <- tokens %>% 
-      inner_join(nrc, "word") %>%
-      count(sentiment, sort=T)
-    
-    # The plot:
-    sentiments %>% 
-      ggplot(aes(x=reorder(sentiment, n), y=n)) +
-      geom_bar(stat="identity", aes(fill=sentiment), show.legend=F) +
-      geom_label(label=sentiments$n) +
-      labs(x="Sentiment", y="Frequency", title="How is the overall mood") +
-      coord_flip() + 
-      theme_bw() 
-    
-  })
-  
   output$plot_ratio <- renderPlot({
     # number of women 
     ratio_nb_women <- length(unique(subset(dataInput(), gender == "f")$character_id)) / 
@@ -240,15 +241,16 @@ server <- function(input, output) {
     ratios_nb_word <- sum(subset(dataInput(), gender=='f')$word_count) / (sum(subset(dataInput(), gender=='f')$word_count) 
                                                     + sum(subset(dataInput(), gender=='m')$word_count))
     
-    df_ratios <- data.frame(criteria=c("nb characters", "nb lines", 
-                                       "speaking time", "mean speaking time", 
+    df_ratios <- data.frame(criteria=c("number of characters", "number of lines in scripts", 
+                                       "speaking time", "mean of speaking time", 
                                        "word count"),
                             ratio=c(ratio_nb_women, ratio_women_nb_lines,
                                     ratio_women_time, ratio_women_time_mean, 
                                     ratios_nb_word))
     ggplot(data=df_ratios, aes(x=criteria, y=ratio)) +
-      geom_bar(stat="identity", fill ="#E69F53")
-    
+      geom_bar(stat="identity", fill ="#E69F53") +
+      labs(title="Frequency of women's apparition for some criteria",
+           y="Frequency")
   })
   
 }
