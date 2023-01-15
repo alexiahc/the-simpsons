@@ -13,7 +13,6 @@ library(grid)
 library(reshape2)
 library(treemap)
 
-
 # User interface ----
 ui <- fluidPage(
   titlePanel("Script analysis - the Simpsons"),
@@ -23,7 +22,7 @@ ui <- fluidPage(
 
       sliderInput(inputId = "seasons",
                   label = "Select the seasons",
-                  value = c(1,26),
+                  value = c(3,5),
                   min = 1, max = 26),
     ),
     mainPanel()
@@ -241,19 +240,27 @@ server <- function(input, output) {
     ratio_women_time_mean <- mean(subset(dataInput(), gender=='f')$timestamp_in_ms) / (mean(subset(dataInput(), gender=='f')$timestamp_in_ms) + 
                                                                    mean(subset(dataInput(), gender=='m')$timestamp_in_ms))
     
-    # number of lines 
+    # lines 
     ratio_women_nb_lines <- length(subset(dataInput(), gender=='f')$line_id) / (length(subset(dataInput(), gender=='f')$line_id) + 
                                                             length(subset(dataInput(), gender=='m')$line_id))
     # word count
-    ratios_nb_word <- sum(subset(dataInput(), gender=='f')$word_count) / (sum(subset(dataInput(), gender=='f')$word_count) 
+    ratio_nb_word <- sum(subset(dataInput(), gender=='f')$word_count) / (sum(subset(dataInput(), gender=='f')$word_count) 
                                                     + sum(subset(dataInput(), gender=='m')$word_count))
-    
+    # # complete names 
+    # list_names <- str_replace_all(subset(dataInput(), gender=='f')$normalized_name, 
+    #                               "ms |miss |mrs |little |female |madam |lady |dr |princess ", "")
+    # list_names <- strsplit(list_names, " ")
+    # list_names_len <- sapply(list_names, length)
+    # sup <- function(x){x>1}
+    # list_names_len <- sapply(list_names_len, sup)
+    # nb_complete_names <- sum(list_names_len)
+
     df_ratios <- data.frame(criteria=c("number of characters", "number of lines in scripts", 
                                        "speaking time", "mean of speaking time", 
                                        "word count"),
                             ratio=c(ratio_nb_women, ratio_women_nb_lines,
                                     ratio_women_time, ratio_women_time_mean, 
-                                    ratios_nb_word))
+                                    ratio_nb_word))
     ggplot(data=df_ratios, aes(x=criteria, y=ratio)) +
       geom_bar(stat="identity", fill ="#E69F53") +
       labs(title="Frequency of women's apparition for some criteria",
@@ -265,7 +272,7 @@ server <- function(input, output) {
       group_by(location_norm_name, character_norm_name) %>%
       summarise(n = n()) %>%
       arrange(desc(n)) %>% 
-      subset(n > 200) %>%
+      subset(n > sum(n)*0.002) %>%
       treemap(index=c("location_norm_name", "character_norm_name"),
               vSize="n",
               type="index",

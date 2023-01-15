@@ -288,13 +288,32 @@ data %>%
   group_by(location_norm_name, character_norm_name) %>%
   summarise(n = n()) %>%
   arrange(desc(n)) %>% 
-  subset(n > 200) %>%
+  subset(n > sum(n)*0.001) %>%
   treemap(index=c("location_norm_name", "character_norm_name"),
         vSize="n",
         type="index",
         title="Springfield locations and their principal speakers")
 
 
+list_names <- str_replace_all(subset(data, gender=='f')$normalized_name, 
+                              "ms |miss |mrs |little |female |madam |lady |dr |princess ", "")
+list_names <- strsplit(list_names, " ")
+list_names_len <- sapply(list_names, length)
+sup <- function(x){x>1}
+list_names_len <- sapply(list_names_len, sup)
+nb_complete_names <- sum(list_names_len)
+ratio_complete_name <- nb_complete_names / length(unique(subset(dataInput(), gender == "f")$character_id))
+
+df_ratios <- data.frame(criteria=c("number of characters", "number of lines in scripts", 
+                                   "speaking time", "mean of speaking time", 
+                                   "word count", "complete name"),
+                        ratio=c(ratio_nb_women, ratio_women_nb_lines,
+                                ratio_women_time, ratio_women_time_mean, 
+                                ratio_nb_word, ratio_complete_name))
+ggplot(data=df_ratios, aes(x=criteria, y=ratio)) +
+  geom_bar(stat="identity", fill ="#E69F53") +
+  labs(title="Frequency of women's apparition for some criteria",
+       y="Frequency")
 
 
 
