@@ -79,29 +79,26 @@ ui <- fluidPage(
 # Server logic
 server <- function(input, output) {
   
-  characters <- read_csv("data/simpsons_characters.csv")
-  episodes <- read_csv("data/simpsons_episodes.csv")
-  locations <- read_csv("data/simpsons_locations.csv")
-  script_lines <- read_csv("data/simpsons_script_lines.csv")
+  characters <- read_csv("data/simpsons_characters.csv", col_select=c("id", "normalized_name", "gender"))
+  episodes <- read_csv("data/simpsons_episodes.csv", col_select=c("id", "season"))
+  locations <- read_csv("data/simpsons_locations.csv", col_select=c("id", "normalized_name"))
+  script_lines <- read_csv("data/simpsons_script_lines.csv", col_select=c("id", "episode_id", "timestamp_in_ms", "speaking_line", "character_id", "location_id","normalized_text", "word_count"))
   bing <- read_csv("data/Bing.csv")
   nrc <- read_csv("data/NRC.csv")
   
   script_lines <- script_lines %>% rename(line_id = "id")
   characters <- characters %>% rename(character_id = "id",
-                                      character_name = "name",
                                       character_norm_name = "normalized_name")
   data <- merge(script_lines, characters, by= "character_id")
   locations <- locations %>% rename(location_id = "id",
-                                    location_name = "name",
                                     location_norm_name = "normalized_name")
   data <- merge(data, locations, by= "location_id")
-  episodes <- episodes %>% rename(episode_id = "id",
-                                  episode_title = "title")
+  episodes <- episodes %>% rename(episode_id = "id")
   data <- merge(data, episodes, by= "episode_id")
+  
   data <- subset(data, speaking_line == TRUE)
-  data <- subset(data, select = -c(number, raw_text, raw_character_text,
-                                   raw_location_text, spoken_words, character_name,
-                                   location_name, speaking_line))
+  data <- subset(data, select = -c(speaking_line))
+  
   data$word_count <- as.numeric(data$word_count)
   data$word_count[is.na(data$word_count)] <- 0 
   
