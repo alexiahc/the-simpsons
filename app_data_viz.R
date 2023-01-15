@@ -95,7 +95,7 @@ server <- function(input, output) {
   data$word_count[is.na(data$word_count)] <- 0 
   
   dataInput <- reactive({
-    return(subset(data, season > input$seasons[1] & season < input$seasons[2]))
+    return(subset(data, season >= input$seasons[1] & season <= input$seasons[2]))
   })
   
   output$plot_cloud_sent <- renderPlot({
