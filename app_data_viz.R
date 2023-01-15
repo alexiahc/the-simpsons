@@ -11,6 +11,7 @@ library(wordcloud)
 library(circlize)
 library(grid)
 library(reshape2)
+library(treemap)
 
 
 # User interface ----
@@ -62,6 +63,17 @@ ui <- fluidPage(
                         for women, of feminine character, of lines said by a woman, of speaking time of women 
                         and words said by a woman in the scripts."))
   ),
+  
+  sidebarLayout(
+    sidebarPanel(
+      helpText(h1("Places of dialogue"))
+    ),
+    mainPanel(plotOutput("plot_locations"),
+              helpText("This represents the different locations where dialogues 
+                       take place in the serie, and the main characters who
+                       speak here.")
+  )
+  )
 )
 
 # Server logic
@@ -250,6 +262,18 @@ server <- function(input, output) {
       geom_bar(stat="identity", fill ="#E69F53") +
       labs(title="Frequency of women's apparition for some criteria",
            y="Frequency")
+  })
+  
+  output$plot_locations <- renderPlot ({
+    dataInput() %>%
+      group_by(location_norm_name, character_norm_name) %>%
+      summarise(n = n()) %>%
+      arrange(desc(n)) %>% 
+      subset(n > 200) %>%
+      treemap(index=c("location_norm_name", "character_norm_name"),
+              vSize="n",
+              type="index",
+              title="Springfield locations and their principal speakers")
   })
   
 }

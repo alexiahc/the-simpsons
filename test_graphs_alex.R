@@ -222,61 +222,79 @@ df_ratios <- data.frame(criteria=c("nb characters", "nb lines",
 ggplot(data=df_ratios, aes(x=criteria, y=ratio)) +
   geom_bar(stat="identity", fill ="#E69F53") 
 
-library(seededlda)
-library(quanteda)
-test <- data %>% 
-  group_by(episode_id) %>% 
-  mutate(text_by_ep = paste0(normalized_text, collapse = "")) 
+# library(seededlda)
+# library(quanteda)
+# test <- data %>% 
+#   group_by(episode_id) %>% 
+#   mutate(text_by_ep = paste0(normalized_text, collapse = "")) 
+# 
+# toks_news <- tokens(test$text_by_ep,
+#                     remove_punct = TRUE, 
+#                     remove_numbers = TRUE, 
+#                     remove_symbol = TRUE)
+# 
+# 
+# toks_news <- tokens_remove(toks_news,
+#                            pattern = c(stopwords("en"), 'from', 'subject', 're', 'edu', 
+#                                        'use', 'not', 'would', 'say', 'could', '_', 'be', 
+#                                        'know', 'good', 'go', 'get', 'do', 'done', 'try', 
+#                                        'many', 'some', 'nice', 'thank', 'think', 'see', 
+#                                        'rather', 'easy', 'easily', 'lot', 'lack', 'make', 
+#                                        'want', 'seem', 'run', 'need', 'even', 'right', 
+#                                        'line', 'even', 'also', 'may', 'take', 'come', 'ive', 
+#                                        'thats', 'youve', 'ill', 'one', 'two', 'three', 'four',
+#                                        'five', 'six', 'seven', 'eight', 'nine', 'ten', 'im', 
+#                                        'lets', 'whats', 'youre', 'going', 'gonna', 'mr', 
+#                                        'dont', 'id', 'hes', 'can', 'cant', 'got', 'youll',
+#                                        'didnt', 'theyre', 'hey', 'ya', 'okay', 'oh', 'yeah', 
+#                                        'ooh', 'hello', 'uh', 'ah', 'huh', 'youll', 'theres', 
+#                                        'whoa', 'cmon', 'ha', 'wont', 'shes', 'eh', 'em', 
+#                                        'ow', 'gotta', 'la', 'woo', 'hoo', 'hi', 'mrs', 
+#                                        'haw', 'ho', 'da'))
+# 
+# nfeat(dfm(toks_news))
+# dfmat_news <- dfm(toks_news) %>%
+#   dfm_trim(min_termfreq = 0.99, termfreq_type = "quantile",
+#            max_docfreq = 0.10,  docfreq_type = "prop")
+# nfeat(dfmat_news)
+# topfeatures(dfmat_news, nfeat(dfmat_news))
+# tmod_lda <- textmodel_lda(dfmat_news,
+#                           k = 10)
+# terms(tmod_lda, 10)
+# dfmat_news$topic <- topics(tmod_lda)
+# table(dfmat_news$topic)
+# 
+# library(tm)
+# dtm <- DocumentTermMatrix(toks_news)
+# dtm <- removeSparseTerms(dtm, 0.99)
+# nRows <- apply(dtm , 1, sum)
+# dtm <- dtm[nRows> 0, ]
+# dtm_tfxidf <- weightTfIdf(dtm)
+# 
+# m <- as.matrix(dtm_tfxidf)
+# rownames(m) <- 1:nrow(m)
+# 
+# library(caret)
+# preproc <- preProcess(m)
+# m_norm <- predict(preproc, m)
+# cl <- kmeans(m_norm, centers = 3)
+# table(cl$cluster)
+# plot(prcomp(m_norm)$x, col=cl$cl)
 
-toks_news <- tokens(test$text_by_ep,
-                    remove_punct = TRUE, 
-                    remove_numbers = TRUE, 
-                    remove_symbol = TRUE)
+
+library(treemap)
+
+data %>%
+  group_by(location_norm_name, character_norm_name) %>%
+  summarise(n = n()) %>%
+  arrange(desc(n)) %>% 
+  subset(n > 200) %>%
+  treemap(index=c("location_norm_name", "character_norm_name"),
+        vSize="n",
+        type="index",
+        title="Springfield locations and their principal speakers")
 
 
-toks_news <- tokens_remove(toks_news,
-                           pattern = c(stopwords("en"), 'from', 'subject', 're', 'edu', 
-                                       'use', 'not', 'would', 'say', 'could', '_', 'be', 
-                                       'know', 'good', 'go', 'get', 'do', 'done', 'try', 
-                                       'many', 'some', 'nice', 'thank', 'think', 'see', 
-                                       'rather', 'easy', 'easily', 'lot', 'lack', 'make', 
-                                       'want', 'seem', 'run', 'need', 'even', 'right', 
-                                       'line', 'even', 'also', 'may', 'take', 'come', 'ive', 
-                                       'thats', 'youve', 'ill', 'one', 'two', 'three', 'four',
-                                       'five', 'six', 'seven', 'eight', 'nine', 'ten', 'im', 
-                                       'lets', 'whats', 'youre', 'going', 'gonna', 'mr', 
-                                       'dont', 'id', 'hes', 'can', 'cant', 'got', 'youll',
-                                       'didnt', 'theyre', 'hey', 'ya', 'okay', 'oh', 'yeah', 
-                                       'ooh', 'hello', 'uh', 'ah', 'huh', 'youll', 'theres', 
-                                       'whoa', 'cmon', 'ha', 'wont', 'shes', 'eh', 'em', 
-                                       'ow', 'gotta', 'la', 'woo', 'hoo', 'hi', 'mrs', 
-                                       'haw', 'ho', 'da'))
 
-nfeat(dfm(toks_news))
-dfmat_news <- dfm(toks_news) %>%
-  dfm_trim(min_termfreq = 0.99, termfreq_type = "quantile",
-           max_docfreq = 0.10,  docfreq_type = "prop")
-nfeat(dfmat_news)
-topfeatures(dfmat_news, nfeat(dfmat_news))
-tmod_lda <- textmodel_lda(dfmat_news,
-                          k = 10)
-terms(tmod_lda, 10)
-dfmat_news$topic <- topics(tmod_lda)
-table(dfmat_news$topic)
 
-library(tm)
-dtm <- DocumentTermMatrix(toks_news)
-dtm <- removeSparseTerms(dtm, 0.99)
-nRows <- apply(dtm , 1, sum)
-dtm <- dtm[nRows> 0, ]
-dtm_tfxidf <- weightTfIdf(dtm)
 
-m <- as.matrix(dtm_tfxidf)
-rownames(m) <- 1:nrow(m)
-
-library(caret)
-preproc <- preProcess(m)
-m_norm <- predict(preproc, m)
-cl <- kmeans(m_norm, centers = 3)
-table(cl$cluster)
-plot(prcomp(m_norm)$x, col=cl$cl)
