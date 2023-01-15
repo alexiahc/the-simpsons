@@ -85,7 +85,6 @@ server <- function(input, output) {
   script_lines <- read_csv("data/simpsons_script_lines.csv")
   bing <- read_csv("data/Bing.csv")
   nrc <- read_csv("data/NRC.csv")
-  afinn <- read_csv("data/Afinn.csv")
   
   script_lines <- script_lines %>% rename(line_id = "id")
   characters <- characters %>% rename(character_id = "id",
